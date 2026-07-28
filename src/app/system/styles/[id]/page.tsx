@@ -74,6 +74,8 @@ export default function StyleGroupDetailPage() {
         createdAt: serverTimestamp(),
       });
       router.push(`/system/styles/${groupId}/${ref.id}`);
+    } catch (e) {
+      alert("스타일 생성 실패: " + (e as Error).message);
     } finally {
       setCreating(false);
     }

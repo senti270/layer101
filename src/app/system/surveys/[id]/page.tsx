@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { doc, updateDoc, onSnapshot } from "firebase/firestore";
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -64,16 +63,17 @@ export default function SurveyDetailPage() {
     if (!files.length || !survey) return;
     setUploading(true);
     try {
+      const { ref: sRef, uploadBytes, getDownloadURL } = await import("firebase/storage");
       const newPhotos: Photo[] = [];
       for (const file of files) {
         const photoId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const path = `surveys/${surveyId}/${photoId}`;
-        const sRef = storageRef(storage, path);
-        await uploadBytes(sRef, file);
-        const url = await getDownloadURL(sRef);
+        const ref = sRef(storage, path);
+        await uploadBytes(ref, file);
+        const url = await getDownloadURL(ref);
         newPhotos.push({ id: photoId, url, storagePath: path });
       }
-      await updateDoc(doc(db, "surveys", surveyId), {
+      await updateDoc(doc(db, "surveys", surveyId as string), {
         photos: [...(survey.photos || []), ...newPhotos],
       });
     } finally {
@@ -86,7 +86,8 @@ export default function SurveyDetailPage() {
     if (!survey) return;
     setDeleting(photo.id);
     try {
-      await deleteObject(storageRef(storage, photo.storagePath)).catch(() => {});
+      const { ref: sRef, deleteObject } = await import("firebase/storage");
+      await deleteObject(sRef(storage, photo.storagePath)).catch(() => {});
       await updateDoc(doc(db, "surveys", surveyId), {
         photos: survey.photos.filter(p => p.id !== photo.id),
       });

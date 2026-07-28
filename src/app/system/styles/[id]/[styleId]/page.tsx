@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -30,7 +29,7 @@ export default function StyleEditorPage() {
   const initialized = useRef(false);
 
   useEffect(() => {
-    return onSnapshot(doc(db, "styles", styleId), snap => {
+    return onSnapshot(doc(db, "styles", styleId as string), snap => {
       if (snap.exists()) {
         const data = snap.data() as Style;
         setStyle(data);
@@ -48,7 +47,7 @@ export default function StyleEditorPage() {
   async function save() {
     setSaving(true);
     try {
-      await updateDoc(doc(db, "styles", styleId), { name, description, pros, cons });
+      await updateDoc(doc(db, "styles", styleId as string), { name, description, pros, cons });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
@@ -61,16 +60,17 @@ export default function StyleEditorPage() {
     if (!files.length || !style) return;
     setUploading(true);
     try {
+      const { ref: sRef, uploadBytes, getDownloadURL } = await import("firebase/storage");
       const newPhotos: Photo[] = [];
       for (const file of files) {
         const photoId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const path = `styles/${styleId}/${photoId}`;
-        const sRef = storageRef(storage, path);
-        await uploadBytes(sRef, file);
-        const url = await getDownloadURL(sRef);
+        const ref = sRef(storage, path);
+        await uploadBytes(ref, file);
+        const url = await getDownloadURL(ref);
         newPhotos.push({ id: photoId, url, storagePath: path });
       }
-      await updateDoc(doc(db, "styles", styleId), {
+      await updateDoc(doc(db, "styles", styleId as string), {
         photos: [...(style.photos || []), ...newPhotos],
       });
     } finally {
@@ -81,8 +81,9 @@ export default function StyleEditorPage() {
 
   async function deletePhoto(photo: Photo) {
     if (!style) return;
-    await deleteObject(storageRef(storage, photo.storagePath)).catch(() => {});
-    await updateDoc(doc(db, "styles", styleId), {
+    const { ref: sRef, deleteObject } = await import("firebase/storage");
+    await deleteObject(sRef(storage, photo.storagePath)).catch(() => {});
+    await updateDoc(doc(db, "styles", styleId as string), {
       photos: style.photos.filter(p => p.id !== photo.id),
     });
   }
