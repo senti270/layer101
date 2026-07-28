@@ -50,9 +50,8 @@ export default function SystemLayout({ children }: { children: React.ReactNode }
 function SystemNav() {
   const pathname = usePathname();
   const links = [
-    { href: "/system/dashboard", label: "선호도 설문" },
+    { href: "/system/projects", label: "프로젝트" },
     { href: "/system/styles", label: "스타일 관리" },
-    { href: "/system/look-reviews", label: "룩북 링크" },
   ];
   return (
     <nav className="bg-white border-b border-gray-200 px-6 flex gap-6 text-sm">

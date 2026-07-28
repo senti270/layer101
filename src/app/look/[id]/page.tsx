@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { doc, getDoc, updateDoc, onSnapshot, collection, getDocs, query, orderBy } from "firebase/firestore";
+import { doc, getDoc, updateDoc, onSnapshot, collection, getDocs, query, orderBy, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 interface Photo {
@@ -23,6 +23,7 @@ interface Style {
 interface LookReview {
   customerName: string;
   hearts: { [photoId: string]: true };
+  groupId?: string;
 }
 
 export default function LookPage({ params }: { params: { id: string } }) {
@@ -36,10 +37,7 @@ export default function LookPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     async function load() {
-      const [reviewSnap, stylesSnap] = await Promise.all([
-        getDoc(doc(db, "lookReviews", reviewId)),
-        getDocs(query(collection(db, "styles"), orderBy("order", "asc"))),
-      ]);
+      const reviewSnap = await getDoc(doc(db, "lookReviews", reviewId));
       if (!reviewSnap.exists()) {
         setNotFound(true);
         setLoading(false);
@@ -47,7 +45,15 @@ export default function LookPage({ params }: { params: { id: string } }) {
       }
       const reviewData = reviewSnap.data() as LookReview;
       setHearts(reviewData.hearts || {});
-      setStyles(stylesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Style)));
+
+      // groupId가 있으면 해당 그룹 스타일만, 없으면 전체
+      const stylesQuery = reviewData.groupId
+        ? query(collection(db, "styles"), where("groupId", "==", reviewData.groupId))
+        : query(collection(db, "styles"), orderBy("order", "asc"));
+      const stylesSnap = await getDocs(stylesQuery);
+      const styleList = stylesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Style));
+      styleList.sort((a, b) => a.order - b.order);
+      setStyles(styleList);
       setLoading(false);
     }
     load();

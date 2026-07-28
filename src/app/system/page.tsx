@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 export default function SystemPage() {
   const router = useRouter();
   useEffect(() => {
-    router.replace("/system/dashboard");
+    router.replace("/system/projects");
   }, [router]);
   return null;
 }
