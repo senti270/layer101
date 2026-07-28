@@ -23,7 +23,7 @@ const STATUS_STYLES = {
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", clientName: "", type: "주거", status: "진행중" as const });
+  const [form, setForm] = useState<{ name: string; clientName: string; type: string; status: Project["status"] }>({ name: "", clientName: "", type: "주거", status: "진행중" });
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
