@@ -37,6 +37,7 @@ export default function LookPage() {
   const [toggling, setToggling] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!reviewId) return;
     async function load() {
       const reviewSnap = await getDoc(doc(db, "lookReviews", reviewId));
       if (!reviewSnap.exists()) {

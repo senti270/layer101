@@ -35,6 +35,7 @@ export default function SurveyDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!surveyId) return;
     const unsub = onSnapshot(doc(db, "surveys", surveyId), (snap) => {
       if (snap.exists()) {
         const data = snap.data() as Survey;
@@ -46,6 +47,7 @@ export default function SurveyDetailPage() {
   }, [surveyId]);
 
   useEffect(() => {
+    if (!surveyId) return;
     const unsub = onSnapshot(doc(db, "surveys", surveyId, "response", "main"), (snap) => {
       if (snap.exists()) setResponse(snap.data() as Response);
     });

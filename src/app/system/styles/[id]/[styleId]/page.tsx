@@ -29,6 +29,7 @@ export default function StyleEditorPage() {
   const initialized = useRef(false);
 
   useEffect(() => {
+    if (!styleId) return;
     return onSnapshot(doc(db, "styles", styleId as string), snap => {
       if (snap.exists()) {
         const data = snap.data() as Style;

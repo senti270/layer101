@@ -62,6 +62,7 @@ export default function ProjectDashboard() {
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!projectId) return;
     const unsub1 = onSnapshot(doc(db, "projects", projectId), snap => {
       if (snap.exists()) setProject(snap.data() as Project);
     });

@@ -26,6 +26,7 @@ export default function SurveyPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    if (!surveyId) return;
     async function load() {
       const [surveySnap, responseSnap] = await Promise.all([
         getDoc(doc(db, "surveys", surveyId)),

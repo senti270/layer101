@@ -29,6 +29,7 @@ export default function StyleGroupDetailPage() {
   const initialized = useRef(false);
 
   useEffect(() => {
+    if (!groupId) return;
     const unsub1 = onSnapshot(doc(db, "styleGroups", groupId), snap => {
       if (snap.exists()) {
         const data = snap.data() as StyleGroup;
@@ -61,6 +62,7 @@ export default function StyleGroupDetailPage() {
   }
 
   async function addStyle() {
+    if (!groupId) return;
     setCreating(true);
     try {
       const ref = await addDoc(collection(db, "styles"), {

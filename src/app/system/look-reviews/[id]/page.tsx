@@ -32,6 +32,7 @@ export default function LookReviewDetailPage() {
   const [styles, setStyles] = useState<Style[]>([]);
 
   useEffect(() => {
+    if (!reviewId) return;
     const unsub = onSnapshot(doc(db, "lookReviews", reviewId), (snap) => {
       if (snap.exists()) setReview(snap.data() as LookReview);
     });
