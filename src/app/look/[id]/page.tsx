@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import { doc, getDoc, updateDoc, onSnapshot, collection, getDocs, query, orderBy, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -26,8 +26,8 @@ interface LookReview {
   groupId?: string;
 }
 
-export default function LookPage({ params }: { params: { id: string } }) {
-  const reviewId = params.id;
+export default function LookPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: reviewId } = use(params);
   const [styles, setStyles] = useState<Style[]>([]);
   const [hearts, setHearts] = useState<{ [photoId: string]: true }>({});
   const [currentIdx, setCurrentIdx] = useState(0);

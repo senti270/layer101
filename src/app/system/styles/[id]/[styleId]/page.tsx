@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
@@ -13,8 +13,8 @@ interface Style {
   photos: Photo[];
 }
 
-export default function StyleEditorPage({ params }: { params: { id: string; styleId: string } }) {
-  const { id: groupId, styleId } = params;
+export default function StyleEditorPage({ params }: { params: Promise<{ id: string; styleId: string }> }) {
+  const { id: groupId, styleId } = use(params);
   const [style, setStyle] = useState<Style | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");

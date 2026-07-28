@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { doc, onSnapshot, collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
@@ -44,8 +44,8 @@ const STATUS_STYLES = {
   대기: "bg-gray-100 text-gray-500",
 };
 
-export default function ProjectDashboard({ params }: { params: { id: string } }) {
-  const projectId = params.id;
+export default function ProjectDashboard({ params }: { params: Promise<{ id: string }> }) {
+  const { id: projectId } = use(params);
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [surveys, setSurveys] = useState<Survey[]>([]);

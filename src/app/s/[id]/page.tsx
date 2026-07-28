@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -15,8 +15,8 @@ interface Survey {
   photos: Photo[];
 }
 
-export default function SurveyPage({ params }: { params: { id: string } }) {
-  const surveyId = params.id;
+export default function SurveyPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: surveyId } = use(params);
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [answers, setAnswers] = useState<{ [photoId: string]: "like" | "dislike" }>({});
   const [submitted, setSubmitted] = useState(false);
