@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import { doc, onSnapshot, collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 
 interface Photo {
   id: string;
@@ -25,8 +26,8 @@ interface LookReview {
   groupId?: string;
 }
 
-export default function LookReviewDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: reviewId } = use(params);
+export default function LookReviewDetailPage() {
+  const { id: reviewId } = useParams<{ id: string }>();
   const [review, setReview] = useState<LookReview | null>(null);
   const [styles, setStyles] = useState<Style[]>([]);
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, use } from "react";
+import { useState, useEffect, useRef } from "react";
 import { doc, onSnapshot, collection, query, where, addDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 
 interface StyleGroup {
   name: string;
@@ -18,8 +18,8 @@ interface Style {
   photos: { id: string; url: string }[];
 }
 
-export default function StyleGroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: groupId } = use(params);
+export default function StyleGroupDetailPage() {
+  const { id: groupId } = useParams<{ id: string }>();
   const router = useRouter();
   const [group, setGroup] = useState<StyleGroup | null>(null);
   const [groupName, setGroupName] = useState("");
