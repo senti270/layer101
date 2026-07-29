@@ -9,7 +9,7 @@ const notoSansKR = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "layer101 — 인테리어 계산기",
+  title: "layer101 - 레이어101",
   description: "맞춤가구·인테리어 견적 계산기 모음",
 };
 
