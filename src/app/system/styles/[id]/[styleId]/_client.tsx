@@ -13,6 +13,7 @@ interface Style {
 }
 
 export default function StyleEditorPage({ groupId, styleId }: { groupId: string; styleId: string }) {
+  console.log('[DEBUG] StyleEditorPage mount — groupId:', groupId, 'styleId:', styleId);
   const [style, setStyle] = useState<Style | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -27,6 +28,7 @@ export default function StyleEditorPage({ groupId, styleId }: { groupId: string;
   const initialized = useRef(false);
 
   useEffect(() => {
+    if (!styleId) { console.error('[ERROR] StyleEditorPage: styleId is undefined!'); return; }
     return onSnapshot(doc(db, "styles", styleId), snap => {
       if (snap.exists()) {
         const data = snap.data() as Style;
@@ -53,8 +55,7 @@ export default function StyleEditorPage({ groupId, styleId }: { groupId: string;
     }
   }
 
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
+  async function uploadFiles(files: File[]) {
     if (!files.length || !style) return;
     setUploading(true);
     try {
@@ -76,6 +77,23 @@ export default function StyleEditorPage({ groupId, styleId }: { groupId: string;
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
+
+  function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    uploadFiles(Array.from(e.target.files || []));
+  }
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.items || [])
+        .filter(item => item.type.startsWith("image/"))
+        .map(item => item.getAsFile())
+        .filter(Boolean) as File[];
+      if (files.length) uploadFiles(files);
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [style, styleId]);
 
   async function deletePhoto(photo: Photo) {
     if (!style) return;

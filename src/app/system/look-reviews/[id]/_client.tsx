@@ -26,10 +26,12 @@ interface LookReview {
 }
 
 export default function LookReviewDetailPage({ reviewId }: { reviewId: string }) {
+  console.log('[DEBUG] LookReviewDetailPage mount — reviewId:', reviewId);
   const [review, setReview] = useState<LookReview | null>(null);
   const [styles, setStyles] = useState<Style[]>([]);
 
   useEffect(() => {
+    if (!reviewId) { console.error('[ERROR] LookReviewDetailPage: reviewId is undefined!'); return; }
     const unsub = onSnapshot(doc(db, "lookReviews", reviewId), (snap) => {
       if (snap.exists()) setReview(snap.data() as LookReview);
     });

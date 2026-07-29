@@ -24,6 +24,7 @@ interface Response {
 }
 
 export default function SurveyDetailPage({ surveyId }: { surveyId: string }) {
+  console.log('[DEBUG] SurveyDetailPage mount — surveyId:', surveyId);
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [response, setResponse] = useState<Response | null>(null);
   const [title, setTitle] = useState("");
@@ -33,6 +34,7 @@ export default function SurveyDetailPage({ surveyId }: { surveyId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!surveyId) { console.error('[ERROR] SurveyDetailPage: surveyId is undefined!'); return; }
     const unsub = onSnapshot(doc(db, "surveys", surveyId), (snap) => {
       if (snap.exists()) {
         const data = snap.data() as Survey;
@@ -44,6 +46,7 @@ export default function SurveyDetailPage({ surveyId }: { surveyId: string }) {
   }, [surveyId]);
 
   useEffect(() => {
+    if (!surveyId) return;
     const unsub = onSnapshot(doc(db, "surveys", surveyId, "response", "main"), (snap) => {
       if (snap.exists()) setResponse(snap.data() as Response);
     });
@@ -56,8 +59,7 @@ export default function SurveyDetailPage({ surveyId }: { surveyId: string }) {
     }
   }
 
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
+  async function uploadFiles(files: File[]) {
     if (!files.length || !survey) return;
     setUploading(true);
     try {
@@ -79,6 +81,23 @@ export default function SurveyDetailPage({ surveyId }: { surveyId: string }) {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
+
+  function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    uploadFiles(Array.from(e.target.files || []));
+  }
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.items || [])
+        .filter(item => item.type.startsWith("image/"))
+        .map(item => item.getAsFile())
+        .filter(Boolean) as File[];
+      if (files.length) uploadFiles(files);
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [survey, surveyId]);
 
   async function handleDeletePhoto(photo: Photo) {
     if (!survey) return;

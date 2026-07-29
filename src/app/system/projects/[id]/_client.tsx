@@ -45,6 +45,7 @@ const STATUS_STYLES = {
 };
 
 export default function ProjectDashboard({ projectId }: { projectId: string }) {
+  console.log('[DEBUG] ProjectDashboard mount — projectId:', projectId);
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [surveys, setSurveys] = useState<Survey[]>([]);
@@ -57,6 +58,7 @@ export default function ProjectDashboard({ projectId }: { projectId: string }) {
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!projectId) { console.error('[ERROR] ProjectDashboard: projectId is undefined!'); return; }
     const unsub1 = onSnapshot(doc(db, "projects", projectId), snap => {
       if (snap.exists()) setProject(snap.data() as Project);
     });

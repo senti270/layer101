@@ -27,6 +27,7 @@ interface LookReview {
 }
 
 export default function LookPage({ reviewId }: { reviewId: string }) {
+  console.log('[DEBUG] LookPage mount — reviewId:', reviewId);
   const [styles, setStyles] = useState<Style[]>([]);
   const [hearts, setHearts] = useState<{ [photoId: string]: true }>({});
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -35,6 +36,7 @@ export default function LookPage({ reviewId }: { reviewId: string }) {
   const [toggling, setToggling] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!reviewId) { console.error('[ERROR] LookPage: reviewId is undefined!'); return; }
     async function load() {
       const reviewSnap = await getDoc(doc(db, "lookReviews", reviewId));
       if (!reviewSnap.exists()) {

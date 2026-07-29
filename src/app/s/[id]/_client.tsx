@@ -16,6 +16,7 @@ interface Survey {
 }
 
 export default function SurveyPage({ surveyId }: { surveyId: string }) {
+  console.log('[DEBUG] SurveyPage mount — surveyId:', surveyId);
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [answers, setAnswers] = useState<{ [photoId: string]: "like" | "dislike" }>({});
   const [submitted, setSubmitted] = useState(false);
@@ -24,6 +25,7 @@ export default function SurveyPage({ surveyId }: { surveyId: string }) {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    if (!surveyId) { console.error('[ERROR] SurveyPage: surveyId is undefined!'); return; }
     async function load() {
       const [surveySnap, responseSnap] = await Promise.all([
         getDoc(doc(db, "surveys", surveyId)),

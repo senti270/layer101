@@ -19,6 +19,7 @@ interface Style {
 }
 
 export default function StyleGroupDetailPage({ groupId }: { groupId: string }) {
+  console.log('[DEBUG] StyleGroupDetailPage mount — groupId:', groupId);
   const router = useRouter();
   const [group, setGroup] = useState<StyleGroup | null>(null);
   const [groupName, setGroupName] = useState("");
@@ -28,6 +29,7 @@ export default function StyleGroupDetailPage({ groupId }: { groupId: string }) {
   const initialized = useRef(false);
 
   useEffect(() => {
+    if (!groupId) { console.error('[ERROR] StyleGroupDetailPage: groupId is undefined!'); return; }
     const unsub1 = onSnapshot(doc(db, "styleGroups", groupId), snap => {
       if (snap.exists()) {
         const data = snap.data() as StyleGroup;
