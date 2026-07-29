@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { doc, onSnapshot, collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 
 interface Photo {
   id: string;
@@ -26,13 +25,12 @@ interface LookReview {
   groupId?: string;
 }
 
-export default function LookReviewDetailPage() {
-  const { id: reviewId } = useParams<{ id: string }>();
+export default function LookReviewDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: reviewId } = use(params);
   const [review, setReview] = useState<LookReview | null>(null);
   const [styles, setStyles] = useState<Style[]>([]);
 
   useEffect(() => {
-    if (!reviewId) return;
     const unsub = onSnapshot(doc(db, "lookReviews", reviewId), (snap) => {
       if (snap.exists()) setReview(snap.data() as LookReview);
     });

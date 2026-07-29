@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { doc, onSnapshot, collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 interface Project {
   name: string;
@@ -44,8 +44,8 @@ const STATUS_STYLES = {
   대기: "bg-gray-100 text-gray-500",
 };
 
-export default function ProjectDashboard() {
-  const { id: projectId } = useParams<{ id: string }>();
+export default function ProjectDashboard({ params }: { params: Promise<{ id: string }> }) {
+  const { id: projectId } = use(params);
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [surveys, setSurveys] = useState<Survey[]>([]);
@@ -62,7 +62,6 @@ export default function ProjectDashboard() {
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!projectId) return;
     const unsub1 = onSnapshot(doc(db, "projects", projectId), snap => {
       if (snap.exists()) setProject(snap.data() as Project);
     });

@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 
 interface Photo { id: string; url: string; storagePath: string; }
 interface Style {
@@ -13,8 +12,8 @@ interface Style {
   photos: Photo[];
 }
 
-export default function StyleEditorPage() {
-  const { id: groupId, styleId } = useParams<{ id: string; styleId: string }>();
+export default function StyleEditorPage({ params }: { params: Promise<{ id: string; styleId: string }> }) {
+  const { id: groupId, styleId } = use(params);
   const [style, setStyle] = useState<Style | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -29,8 +28,7 @@ export default function StyleEditorPage() {
   const initialized = useRef(false);
 
   useEffect(() => {
-    if (!styleId) return;
-    return onSnapshot(doc(db, "styles", styleId as string), snap => {
+    return onSnapshot(doc(db, "styles", styleId), snap => {
       if (snap.exists()) {
         const data = snap.data() as Style;
         setStyle(data);

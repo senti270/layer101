@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { doc, onSnapshot, collection, query, where, addDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 interface StyleGroup {
   name: string;
@@ -18,8 +18,8 @@ interface Style {
   photos: { id: string; url: string }[];
 }
 
-export default function StyleGroupDetailPage() {
-  const { id: groupId } = useParams<{ id: string }>();
+export default function StyleGroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: groupId } = use(params);
   const router = useRouter();
   const [group, setGroup] = useState<StyleGroup | null>(null);
   const [groupName, setGroupName] = useState("");
@@ -29,7 +29,6 @@ export default function StyleGroupDetailPage() {
   const initialized = useRef(false);
 
   useEffect(() => {
-    if (!groupId) return;
     const unsub1 = onSnapshot(doc(db, "styleGroups", groupId), snap => {
       if (snap.exists()) {
         const data = snap.data() as StyleGroup;
@@ -62,7 +61,6 @@ export default function StyleGroupDetailPage() {
   }
 
   async function addStyle() {
-    if (!groupId) return;
     setCreating(true);
     try {
       const ref = await addDoc(collection(db, "styles"), {

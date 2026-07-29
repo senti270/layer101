@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { doc, updateDoc, onSnapshot } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 
 interface Photo {
   id: string;
@@ -24,8 +23,8 @@ interface Response {
   answers: { [photoId: string]: "like" | "dislike" };
 }
 
-export default function SurveyDetailPage() {
-  const { id: surveyId } = useParams<{ id: string }>();
+export default function SurveyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: surveyId } = use(params);
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [response, setResponse] = useState<Response | null>(null);
   const [title, setTitle] = useState("");
@@ -35,7 +34,6 @@ export default function SurveyDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!surveyId) return;
     const unsub = onSnapshot(doc(db, "surveys", surveyId), (snap) => {
       if (snap.exists()) {
         const data = snap.data() as Survey;
@@ -47,7 +45,6 @@ export default function SurveyDetailPage() {
   }, [surveyId]);
 
   useEffect(() => {
-    if (!surveyId) return;
     const unsub = onSnapshot(doc(db, "surveys", surveyId, "response", "main"), (snap) => {
       if (snap.exists()) setResponse(snap.data() as Response);
     });
