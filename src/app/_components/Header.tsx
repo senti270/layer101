@@ -8,8 +8,8 @@ export default function Header() {
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-      <a href="/" className="text-xl font-bold tracking-tight text-gray-900">
-        layer<span className="text-blue-600">101</span>
+      <a href="/">
+        <img src="/layer101_logo.png" alt="layer101" className="h-8 w-auto" />
       </a>
       {!isPublic && (
         <nav className="flex items-center gap-4 text-sm">
