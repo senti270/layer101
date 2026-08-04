@@ -42,7 +42,6 @@ next-env.d.ts
 
 # local-only directories (not deployed to Vercel)
 /src/app/studio
-/src/app/wardrobe
 /src/app/icons
 /supabase
 /.claude
