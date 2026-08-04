@@ -1,4 +1,4 @@
-import WardrobeCalculator from "@/app/wardrobe/WardrobeCalculator";
+import WardrobeCalculator from "../../../wardrobe/WardrobeCalculator";
 
 export default function BuiltInCalculatorPage() {
   return (
