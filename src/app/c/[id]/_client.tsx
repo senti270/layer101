@@ -5,6 +5,7 @@ import {
   doc, onSnapshot, collection, query, where, getDocs, orderBy,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useLightbox, Lightbox } from "@/app/_components/ImageLightbox";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Project {
@@ -262,108 +263,139 @@ function HomeTab({ project, setTab }: { project: Project; setTab: (t: Tab) => vo
 
 // ── Tab: 설문결과 ──────────────────────────────────────────────────────────
 function SurveyTab({ surveys, responses }: { surveys: Survey[]; responses: Record<string, SurveyResponse> }) {
+  const { lb, openLb, closeLb, prevLb, nextLb } = useLightbox();
   if (!surveys.length) return <Empty icon="📊" text="등록된 설문이 없습니다." />;
 
   return (
-    <div className="space-y-10">
-      {surveys.map(survey => {
-        const res = responses[survey.id];
-        if (!survey.photos?.length) return null;
-        const liked = survey.photos.filter(p => res?.answers[p.id] === "like");
-        const disliked = survey.photos.filter(p => res?.answers[p.id] === "dislike");
+    <>
+      <Lightbox lb={lb} onClose={closeLb} onPrev={prevLb} onNext={nextLb} />
+      <div className="space-y-10">
+        {surveys.map(survey => {
+          const res = responses[survey.id];
+          if (!survey.photos?.length) return null;
+          const liked = survey.photos.filter(p => res?.answers[p.id] === "like");
+          const disliked = survey.photos.filter(p => res?.answers[p.id] === "dislike");
+          const allLikedUrls = liked.map(p => p.url);
+          const allDislikedUrls = disliked.map(p => p.url);
 
-        return (
-          <div key={survey.id}>
-            <h2 className="font-semibold text-gray-800 mb-4">{survey.title}</h2>
-            {!res ? (
-              <p className="text-sm text-gray-400">아직 응답이 없습니다.</p>
-            ) : (
-              <div className="space-y-5">
-                {liked.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-green-600 mb-2">👍 좋아요 ({liked.length})</p>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {liked.map(p => <img key={p.id} src={p.url} className="aspect-square object-cover rounded-lg w-full" />)}
+          return (
+            <div key={survey.id}>
+              <h2 className="font-semibold text-gray-800 mb-4">{survey.title}</h2>
+              {!res ? (
+                <p className="text-sm text-gray-400">아직 응답이 없습니다.</p>
+              ) : (
+                <div className="space-y-5">
+                  {liked.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-green-600 mb-2">👍 좋아요 ({liked.length})</p>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {liked.map((p, i) => (
+                          <img key={p.id} src={p.url} onClick={() => openLb(allLikedUrls, i)}
+                            className="aspect-square object-cover rounded-lg w-full cursor-zoom-in" />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-                {disliked.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-red-500 mb-2">👎 싫어요 ({disliked.length})</p>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {disliked.map(p => <img key={p.id} src={p.url} className="aspect-square object-cover rounded-lg w-full opacity-40" />)}
+                  )}
+                  {disliked.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-red-500 mb-2">👎 싫어요 ({disliked.length})</p>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {disliked.map((p, i) => (
+                          <img key={p.id} src={p.url} onClick={() => openLb(allDislikedUrls, i)}
+                            className="aspect-square object-cover rounded-lg w-full opacity-40 cursor-zoom-in" />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
 // ── Tab: 룩북 ──────────────────────────────────────────────────────────────
 function LookbookTab({ lookReviews, styles }: { lookReviews: LookReview[]; styles: Style[] }) {
+  const { lb, openLb, closeLb, prevLb, nextLb } = useLightbox();
   if (!lookReviews.length) return <Empty icon="🖼️" text="등록된 룩북이 없습니다." />;
 
   return (
-    <div className="space-y-10">
-      {lookReviews.map(review => {
-        const hearts = review.hearts || {};
-        const byStyle = styles.map(s => ({
-          style: s,
-          photos: (s.photos || []).filter(p => hearts[p.id]),
-        })).filter(x => x.photos.length > 0);
+    <>
+      <Lightbox lb={lb} onClose={closeLb} onPrev={prevLb} onNext={nextLb} />
+      <div className="space-y-10">
+        {lookReviews.map(review => {
+          const hearts = review.hearts || {};
+          const byStyle = styles.map(s => ({
+            style: s,
+            photos: (s.photos || []).filter(p => hearts[p.id]),
+          })).filter(x => x.photos.length > 0);
+          const allUrls = byStyle.flatMap(x => x.photos.map(p => p.url));
 
-        return (
-          <div key={review.id}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-800">{review.customerName}</h2>
-              <span className="text-xs text-pink-500">❤️ {Object.keys(hearts).length}</span>
-            </div>
-            {!byStyle.length ? (
-              <p className="text-sm text-gray-400">아직 선택한 사진이 없습니다.</p>
-            ) : byStyle.map(({ style, photos }) => (
-              <div key={style.id} className="mb-6">
-                <p className="text-xs font-medium text-gray-500 mb-2">{style.name}</p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {photos.map(p => <img key={p.id} src={p.url} className="aspect-square object-cover rounded-lg w-full" />)}
-                </div>
+          return (
+            <div key={review.id}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-gray-800">{review.customerName}</h2>
+                <span className="text-xs text-pink-500">❤️ {Object.keys(hearts).length}</span>
               </div>
-            ))}
-          </div>
-        );
-      })}
-    </div>
+              {!byStyle.length ? (
+                <p className="text-sm text-gray-400">아직 선택한 사진이 없습니다.</p>
+              ) : (() => {
+                let globalIdx = 0;
+                return byStyle.map(({ style, photos }) => (
+                  <div key={style.id} className="mb-6">
+                    <p className="text-xs font-medium text-gray-500 mb-2">{style.name}</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {photos.map(p => {
+                        const idx = globalIdx++;
+                        return (
+                          <img key={p.id} src={p.url} onClick={() => openLb(allUrls, idx)}
+                            className="aspect-square object-cover rounded-lg w-full cursor-zoom-in" />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
 // ── Tab: 공사현황 ──────────────────────────────────────────────────────────
 function ProgressTab({ logs }: { logs: ProgressLog[] }) {
+  const { lb, openLb, closeLb, prevLb, nextLb } = useLightbox();
   if (!logs.length) return <Empty icon="🏗️" text="아직 등록된 공사 현황이 없습니다." />;
 
   return (
-    <div className="relative">
-      <div className="absolute left-1 top-0 bottom-0 w-px bg-gray-100" />
-      <div className="space-y-8">
-        {logs.map(log => (
-          <div key={log.id} className="pl-7 relative">
-            <div className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-gray-900 border-2 border-white shadow" />
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">{log.date}</p>
-            {log.content && <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line mb-3">{log.content}</p>}
-            {log.photos?.length > 0 && (
-              <div className="grid grid-cols-2 gap-2">
-                {log.photos.map((url, i) => (
-                  <img key={i} src={url} className="w-full aspect-video object-cover rounded-xl" />
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+    <>
+      <Lightbox lb={lb} onClose={closeLb} onPrev={prevLb} onNext={nextLb} />
+      <div className="relative">
+        <div className="absolute left-1 top-0 bottom-0 w-px bg-gray-100" />
+        <div className="space-y-8">
+          {logs.map(log => (
+            <div key={log.id} className="pl-7 relative">
+              <div className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-gray-900 border-2 border-white shadow" />
+              <p className="text-xs font-semibold text-gray-500 mb-1.5">{log.date}</p>
+              {log.content && <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line mb-3">{log.content}</p>}
+              {log.photos?.length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {log.photos.map((url, i) => (
+                    <img key={i} src={url} onClick={() => openLb(log.photos, i)}
+                      className="w-full aspect-video object-cover rounded-xl cursor-zoom-in" />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -485,51 +517,56 @@ function FilesTab({ files }: { files: ProjectFile[] }) {
 // ── Tab: 미팅기록 ──────────────────────────────────────────────────────────
 function MeetingTab({ meetings }: { meetings: MeetingLog[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { lb, openLb, closeLb, prevLb, nextLb } = useLightbox();
   if (!meetings.length) return <Empty icon="📝" text="아직 등록된 미팅기록이 없습니다." />;
 
   return (
-    <div className="space-y-3">
-      {meetings.map(m => (
-        <div key={m.id} className="border border-gray-100 rounded-2xl overflow-hidden">
-          <button onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}
-            className="w-full flex items-center justify-between px-4 py-4 text-left">
-            <div>
-              <p className="text-sm font-medium text-gray-800">{m.title}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{m.date}
-                {m.photos?.length > 0 && ` · 📷 ${m.photos.length}`}
-                {m.files?.length > 0 && ` · 📎 ${m.files.length}`}
-              </p>
-            </div>
-            <svg className={`w-4 h-4 text-gray-300 transition-transform flex-shrink-0 ${expandedId === m.id ? "rotate-180" : ""}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {expandedId === m.id && (
-            <div className="px-4 pb-5 space-y-3 border-t border-gray-50">
-              {m.content && <p className="text-sm text-gray-600 whitespace-pre-line pt-3 leading-relaxed">{m.content}</p>}
-              {m.photos?.length > 0 && (
-                <div className="grid grid-cols-2 gap-2">
-                  {m.photos.map((url, i) => (
-                    <img key={i} src={url} className="w-full aspect-video object-cover rounded-xl" />
-                  ))}
-                </div>
-              )}
-              {m.files?.length > 0 && (
-                <div className="space-y-1">
-                  {m.files.map((f, i) => (
-                    <a key={i} href={f.url} target="_blank" rel="noreferrer"
-                      className="flex items-center gap-2 text-xs text-blue-500 hover:underline py-1">
-                      📎 {f.name}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
+    <>
+      <Lightbox lb={lb} onClose={closeLb} onPrev={prevLb} onNext={nextLb} />
+      <div className="space-y-3">
+        {meetings.map(m => (
+          <div key={m.id} className="border border-gray-100 rounded-2xl overflow-hidden">
+            <button onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}
+              className="w-full flex items-center justify-between px-4 py-4 text-left">
+              <div>
+                <p className="text-sm font-medium text-gray-800">{m.title}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{m.date}
+                  {m.photos?.length > 0 && ` · 📷 ${m.photos.length}`}
+                  {m.files?.length > 0 && ` · 📎 ${m.files.length}`}
+                </p>
+              </div>
+              <svg className={`w-4 h-4 text-gray-300 transition-transform flex-shrink-0 ${expandedId === m.id ? "rotate-180" : ""}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {expandedId === m.id && (
+              <div className="px-4 pb-5 space-y-3 border-t border-gray-50">
+                {m.content && <p className="text-sm text-gray-600 whitespace-pre-line pt-3 leading-relaxed">{m.content}</p>}
+                {m.photos?.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {m.photos.map((url, i) => (
+                      <img key={i} src={url} onClick={() => openLb(m.photos, i)}
+                        className="w-full aspect-video object-cover rounded-xl cursor-zoom-in" />
+                    ))}
+                  </div>
+                )}
+                {m.files?.length > 0 && (
+                  <div className="space-y-1">
+                    {m.files.map((f, i) => (
+                      <a key={i} href={f.url} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-2 text-xs text-blue-500 hover:underline py-1">
+                        📎 {f.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 

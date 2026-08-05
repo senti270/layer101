@@ -9,6 +9,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage
 import { db, storage } from "@/lib/firebase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useLightbox, Lightbox } from "@/app/_components/ImageLightbox";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Project {
@@ -486,6 +487,7 @@ function SurveysTab({
 
 // ── Progress Tab ──────────────────────────────────────────────────────────
 function ProgressTab({ projectId, logs }: { projectId: string; logs: ProgressLog[] }) {
+  const { lb, openLb, closeLb, prevLb, nextLb } = useLightbox();
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), content: "" });
   const [uploadingPhotos, setUploadingPhotos] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -550,6 +552,7 @@ function ProgressTab({ projectId, logs }: { projectId: string; logs: ProgressLog
 
   return (
     <div>
+      <Lightbox lb={lb} onClose={closeLb} onPrev={prevLb} onNext={nextLb} />
       {/* 공사일지 작성 폼 */}
       <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">공사일지 작성</h2>
@@ -623,7 +626,8 @@ function ProgressTab({ projectId, logs }: { projectId: string; logs: ProgressLog
                   {log.photos?.length > 0 && (
                     <div className="grid grid-cols-2 gap-2">
                       {log.photos.map((url, i) => (
-                        <img key={i} src={url} className="w-full aspect-video object-cover rounded-lg" />
+                        <img key={i} src={url} onClick={() => openLb(log.photos, i)}
+                          className="w-full aspect-video object-cover rounded-lg cursor-zoom-in" />
                       ))}
                     </div>
                   )}
@@ -931,6 +935,7 @@ function FilesTab({ projectId, files }: { projectId: string; files: ProjectFile[
 
 // ── Meeting Tab ───────────────────────────────────────────────────────────
 function MeetingTab({ projectId, meetings }: { projectId: string; meetings: MeetingLog[] }) {
+  const { lb, openLb, closeLb, prevLb, nextLb } = useLightbox();
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), title: "", content: "" });
   const [pendingPhotos, setPendingPhotos] = useState<string[]>([]);
   const [pendingFiles, setPendingFiles] = useState<{ name: string; url: string }[]>([]);
@@ -1016,6 +1021,7 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
 
   return (
     <div>
+      <Lightbox lb={lb} onClose={closeLb} onPrev={prevLb} onNext={nextLb} />
       <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">미팅기록 작성</h2>
         <div className="grid grid-cols-2 gap-2">
@@ -1105,7 +1111,8 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
                   {m.photos?.length > 0 && (
                     <div className="grid grid-cols-2 gap-2">
                       {m.photos.map((url, i) => (
-                        <img key={i} src={url} className="w-full aspect-video object-cover rounded-lg" />
+                        <img key={i} src={url} onClick={() => openLb(m.photos, i)}
+                          className="w-full aspect-video object-cover rounded-lg cursor-zoom-in" />
                       ))}
                     </div>
                   )}
