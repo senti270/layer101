@@ -69,11 +69,21 @@ interface ProjectFile {
   type: string;
   uploadedAt: { toDate: () => Date } | null;
 }
+interface MeetingLog {
+  id: string;
+  date: string;
+  title: string;
+  content: string;
+  photos: string[];
+  files: { name: string; url: string }[];
+  createdAt: { toDate: () => Date } | null;
+}
 
-type Tab = "overview" | "surveys" | "progress" | "schedule" | "materials" | "files";
+type Tab = "overview" | "surveys" | "meeting" | "progress" | "schedule" | "materials" | "files";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "개요" },
   { id: "surveys", label: "설문/룩북" },
+  { id: "meeting", label: "미팅기록" },
   { id: "progress", label: "공사현황" },
   { id: "schedule", label: "공정표" },
   { id: "materials", label: "마감재" },
@@ -96,6 +106,7 @@ export default function ClientDashboard({ projectId }: { projectId: string }) {
   const [logs, setLogs] = useState<ProgressLog[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [files, setFiles] = useState<ProjectFile[]>([]);
+  const [meetings, setMeetings] = useState<MeetingLog[]>([]);
   const [tab, setTab] = useState<Tab>("overview");
 
   useEffect(() => {
@@ -134,7 +145,11 @@ export default function ClientDashboard({ projectId }: { projectId: string }) {
       query(collection(db, "projects", projectId, "files"), orderBy("uploadedAt", "desc")),
       snap => setFiles(snap.docs.map(d => ({ id: d.id, ...d.data() } as ProjectFile)))
     );
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); };
+    const unsub7 = onSnapshot(
+      query(collection(db, "projects", projectId, "meetingLogs"), orderBy("date", "desc")),
+      snap => setMeetings(snap.docs.map(d => ({ id: d.id, ...d.data() } as MeetingLog)))
+    );
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7(); };
   }, [projectId]);
 
   if (!project) return (
@@ -185,6 +200,9 @@ export default function ClientDashboard({ projectId }: { projectId: string }) {
           styleGroups={styleGroups}
           router={router}
         />
+      )}
+      {tab === "meeting" && (
+        <MeetingTab projectId={projectId} meetings={meetings} />
       )}
       {tab === "progress" && (
         <ProgressTab projectId={projectId} logs={logs} />
@@ -903,6 +921,206 @@ function FilesTab({ projectId, files }: { projectId: string; files: ProjectFile[
                 </p>
               </div>
               <button onClick={() => deleteFile(f.id)} className="text-red-400 hover:text-red-600 text-sm flex-shrink-0">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Meeting Tab ───────────────────────────────────────────────────────────
+function MeetingTab({ projectId, meetings }: { projectId: string; meetings: MeetingLog[] }) {
+  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), title: "", content: "" });
+  const [pendingPhotos, setPendingPhotos] = useState<string[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<{ name: string; url: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const meetingFileRef = useRef<HTMLInputElement>(null);
+
+  async function uploadToStorage(file: File, path: string) {
+    const r = storageRef(storage, path);
+    await uploadBytes(r, file);
+    return getDownloadURL(r);
+  }
+
+  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setUploading(true);
+    const urls = await Promise.all(files.map(f =>
+      uploadToStorage(f, `projects/${projectId}/meetings/${Date.now()}_${f.name}`)
+    ));
+    setPendingPhotos(p => [...p, ...urls]);
+    setUploading(false);
+    if (photoRef.current) photoRef.current.value = "";
+  }
+
+  async function handleAttachSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setUploading(true);
+    const uploaded = await Promise.all(files.map(async f => {
+      const url = await uploadToStorage(f, `projects/${projectId}/meetings/files/${Date.now()}_${f.name}`);
+      return { name: f.name, url };
+    }));
+    setPendingFiles(p => [...p, ...uploaded]);
+    setUploading(false);
+    if (meetingFileRef.current) meetingFileRef.current.value = "";
+  }
+
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.items ?? [])
+        .filter(item => item.type.startsWith("image/"))
+        .map(item => item.getAsFile())
+        .filter(Boolean) as File[];
+      if (!files.length) return;
+      setUploading(true);
+      const urls = await Promise.all(files.map(f =>
+        uploadToStorage(f, `projects/${projectId}/meetings/${Date.now()}_paste.png`)
+      ));
+      setPendingPhotos(p => [...p, ...urls]);
+      setUploading(false);
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [projectId]);
+
+  async function submit() {
+    if (!form.date || !form.title.trim()) return;
+    setSubmitting(true);
+    try {
+      await addDoc(collection(db, "projects", projectId, "meetingLogs"), {
+        date: form.date,
+        title: form.title.trim(),
+        content: form.content,
+        photos: pendingPhotos,
+        files: pendingFiles,
+        createdAt: serverTimestamp(),
+      });
+      setForm({ date: new Date().toISOString().slice(0, 10), title: "", content: "" });
+      setPendingPhotos([]);
+      setPendingFiles([]);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function deleteMeeting(id: string) {
+    if (!confirm("이 미팅기록을 삭제할까요?")) return;
+    await deleteDoc(doc(db, "projects", projectId, "meetingLogs", id));
+  }
+
+  return (
+    <div>
+      <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
+        <h2 className="text-sm font-semibold text-gray-700">미팅기록 작성</h2>
+        <div className="grid grid-cols-2 gap-2">
+          <input type="date" value={form.date}
+            onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400" />
+          <input value={form.title}
+            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            placeholder="제목 *"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400" />
+        </div>
+        <textarea value={form.content}
+          onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+          placeholder="미팅 내용을 입력하세요 (이미지 붙여넣기 가능)"
+          rows={4}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 resize-none" />
+
+        {pendingPhotos.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {pendingPhotos.map((url, i) => (
+              <div key={i} className="relative">
+                <img src={url} className="w-full aspect-video object-cover rounded-lg" />
+                <button onClick={() => setPendingPhotos(p => p.filter((_, j) => j !== i))}
+                  className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-xs flex items-center justify-center">×</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {pendingFiles.length > 0 && (
+          <div className="space-y-1">
+            {pendingFiles.map((f, i) => (
+              <div key={i} className="flex items-center justify-between bg-white rounded-lg px-3 py-1.5 text-xs text-gray-600 border border-gray-200">
+                <span className="truncate">📎 {f.name}</span>
+                <button onClick={() => setPendingFiles(p => p.filter((_, j) => j !== i))} className="text-red-400 ml-2 flex-shrink-0">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {uploading && <p className="text-xs text-blue-500">업로드 중...</p>}
+
+        <div className="flex gap-2">
+          <button onClick={() => photoRef.current?.click()}
+            className="flex-1 py-2 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-white transition-colors">
+            📷 사진
+          </button>
+          <button onClick={() => meetingFileRef.current?.click()}
+            className="flex-1 py-2 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-white transition-colors">
+            📎 파일
+          </button>
+          <button onClick={submit} disabled={submitting || !form.title.trim() || !form.date}
+            className="flex-1 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors">
+            {submitting ? "저장 중..." : "저장"}
+          </button>
+        </div>
+        <input ref={photoRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoSelect} />
+        <input ref={meetingFileRef} type="file" multiple className="hidden" onChange={handleAttachSelect} />
+      </div>
+
+      {!meetings.length ? (
+        <div className="text-center py-12 text-gray-400 text-sm">미팅 기록이 없습니다.</div>
+      ) : (
+        <div className="space-y-3">
+          {meetings.map(m => (
+            <div key={m.id} className="border border-gray-200 rounded-xl overflow-hidden">
+              <button onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-gray-800">{m.title}</span>
+                  <span className="text-xs text-gray-400">{m.date}</span>
+                  {m.photos?.length > 0 && <span className="text-xs text-gray-400">📷 {m.photos.length}</span>}
+                  {m.files?.length > 0 && <span className="text-xs text-gray-400">📎 {m.files.length}</span>}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button onClick={e => { e.stopPropagation(); deleteMeeting(m.id); }}
+                    className="text-xs text-red-400 hover:text-red-600 px-2 py-0.5">삭제</button>
+                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${expandedId === m.id ? "rotate-180" : ""}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+              {expandedId === m.id && (
+                <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+                  {m.content && <p className="text-sm text-gray-700 whitespace-pre-line">{m.content}</p>}
+                  {m.photos?.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {m.photos.map((url, i) => (
+                        <img key={i} src={url} className="w-full aspect-video object-cover rounded-lg" />
+                      ))}
+                    </div>
+                  )}
+                  {m.files?.length > 0 && (
+                    <div className="space-y-1">
+                      {m.files.map((f, i) => (
+                        <a key={i} href={f.url} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
+                          📎 {f.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

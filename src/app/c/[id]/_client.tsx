@@ -65,12 +65,21 @@ interface ProjectFile {
   type: string;
   uploadedAt: { toDate: () => Date } | null;
 }
+interface MeetingLog {
+  id: string;
+  date: string;
+  title: string;
+  content: string;
+  photos: string[];
+  files: { name: string; url: string }[];
+}
 
-type Tab = "home" | "survey" | "lookbook" | "progress" | "schedule" | "materials" | "files";
+type Tab = "home" | "survey" | "lookbook" | "meeting" | "progress" | "schedule" | "materials" | "files";
 const TABS: { id: Tab; label: string }[] = [
   { id: "home", label: "홈" },
   { id: "survey", label: "설문결과" },
   { id: "lookbook", label: "룩북" },
+  { id: "meeting", label: "미팅기록" },
   { id: "progress", label: "공사현황" },
   { id: "schedule", label: "공정표" },
   { id: "materials", label: "마감재" },
@@ -95,6 +104,7 @@ export default function ClientPortal({ projectId }: { projectId: string }) {
   const [logs, setLogs] = useState<ProgressLog[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [files, setFiles] = useState<ProjectFile[]>([]);
+  const [meetings, setMeetings] = useState<MeetingLog[]>([]);
   const [tab, setTab] = useState<Tab>("home");
   const [loading, setLoading] = useState(true);
 
@@ -137,8 +147,12 @@ export default function ClientPortal({ projectId }: { projectId: string }) {
       query(collection(db, "projects", projectId, "files"), orderBy("uploadedAt", "desc")),
       snap => setFiles(snap.docs.map(d => ({ id: d.id, ...d.data() } as ProjectFile)))
     );
+    const unsubMeetings = onSnapshot(
+      query(collection(db, "projects", projectId, "meetingLogs"), orderBy("date", "desc")),
+      snap => setMeetings(snap.docs.map(d => ({ id: d.id, ...d.data() } as MeetingLog)))
+    );
 
-    return () => { unsubProject(); unsubLogs(); unsubMat(); unsubFiles(); };
+    return () => { unsubProject(); unsubLogs(); unsubMat(); unsubFiles(); unsubMeetings(); };
   }, [projectId]);
 
   if (loading) return (
@@ -188,6 +202,7 @@ export default function ClientPortal({ projectId }: { projectId: string }) {
         {tab === "home" && <HomeTab project={project} setTab={setTab} />}
         {tab === "survey" && <SurveyTab surveys={surveys} responses={responses} />}
         {tab === "lookbook" && <LookbookTab lookReviews={lookReviews} styles={styles} />}
+        {tab === "meeting" && <MeetingTab meetings={meetings} />}
         {tab === "progress" && <ProgressTab logs={logs} />}
         {tab === "schedule" && <ScheduleTab stages={project.schedule?.stages ?? []} />}
         {tab === "materials" && <MaterialsTab materials={materials} />}
@@ -201,6 +216,7 @@ export default function ClientPortal({ projectId }: { projectId: string }) {
 const QUICK_LINKS: { label: string; icon: string; tab: Tab }[] = [
   { label: "설문결과", icon: "📊", tab: "survey" },
   { label: "룩북", icon: "🖼️", tab: "lookbook" },
+  { label: "미팅기록", icon: "📝", tab: "meeting" },
   { label: "공사현황", icon: "🏗️", tab: "progress" },
   { label: "공정표", icon: "📅", tab: "schedule" },
   { label: "마감재", icon: "🪵", tab: "materials" },
@@ -461,6 +477,57 @@ function FilesTab({ files }: { files: ProjectFile[] }) {
               d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
         </a>
+      ))}
+    </div>
+  );
+}
+
+// ── Tab: 미팅기록 ──────────────────────────────────────────────────────────
+function MeetingTab({ meetings }: { meetings: MeetingLog[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  if (!meetings.length) return <Empty icon="📝" text="아직 등록된 미팅기록이 없습니다." />;
+
+  return (
+    <div className="space-y-3">
+      {meetings.map(m => (
+        <div key={m.id} className="border border-gray-100 rounded-2xl overflow-hidden">
+          <button onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}
+            className="w-full flex items-center justify-between px-4 py-4 text-left">
+            <div>
+              <p className="text-sm font-medium text-gray-800">{m.title}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{m.date}
+                {m.photos?.length > 0 && ` · 📷 ${m.photos.length}`}
+                {m.files?.length > 0 && ` · 📎 ${m.files.length}`}
+              </p>
+            </div>
+            <svg className={`w-4 h-4 text-gray-300 transition-transform flex-shrink-0 ${expandedId === m.id ? "rotate-180" : ""}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {expandedId === m.id && (
+            <div className="px-4 pb-5 space-y-3 border-t border-gray-50">
+              {m.content && <p className="text-sm text-gray-600 whitespace-pre-line pt-3 leading-relaxed">{m.content}</p>}
+              {m.photos?.length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {m.photos.map((url, i) => (
+                    <img key={i} src={url} className="w-full aspect-video object-cover rounded-xl" />
+                  ))}
+                </div>
+              )}
+              {m.files?.length > 0 && (
+                <div className="space-y-1">
+                  {m.files.map((f, i) => (
+                    <a key={i} href={f.url} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-2 text-xs text-blue-500 hover:underline py-1">
+                      📎 {f.name}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       ))}
     </div>
   );
