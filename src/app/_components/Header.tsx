@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 
 export default function Header() {
   const pathname = usePathname();
-  if (pathname.startsWith("/workspace")) return null;
+  if (pathname.startsWith("/workspace") || pathname.startsWith("/c/")) return null;
 
   return (
     <header className="bg-white border-b border-gray-100 px-6 py-4">

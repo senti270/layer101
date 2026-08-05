@@ -1,6 +1,6 @@
-import ClientDashboard from "./_client";
+import ClientPortal from "./_client";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <ClientDashboard projectId={id} />;
+  return <ClientPortal projectId={id} />;
 }
