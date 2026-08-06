@@ -563,7 +563,7 @@ function ProgressTab({ projectId, logs }: { projectId: string; logs: ProgressLog
           onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
           placeholder="오늘의 공사 내용을 입력하세요 (이미지 붙여넣기 가능)"
           rows={4}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 resize-none" />
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 resize-y min-h-[96px]" />
 
         {formPhotos.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
@@ -1098,7 +1098,7 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
         </div>
         <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
           placeholder="미팅 내용을 입력하세요 (이미지 붙여넣기 가능)" rows={4}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 resize-none" />
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 resize-y min-h-[96px]" />
         {pendingPhotos.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
             {pendingPhotos.map((url, i) => (
@@ -1176,7 +1176,7 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
                   </div>
                   <textarea value={editForm.content} onChange={e => setEditForm(f => f ? { ...f, content: e.target.value } : f)}
                     placeholder="내용 (이미지 붙여넣기 가능)" rows={4}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 resize-none" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 resize-y min-h-[96px]" />
                   {editForm.photos.length > 0 && (
                     <div className="grid grid-cols-3 gap-2">
                       {editForm.photos.map((url, i) => (
