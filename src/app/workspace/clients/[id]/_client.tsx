@@ -934,16 +934,31 @@ function FilesTab({ projectId, files }: { projectId: string; files: ProjectFile[
 }
 
 // ── Meeting Tab ───────────────────────────────────────────────────────────
+interface EditForm {
+  date: string; title: string; content: string;
+  photos: string[]; files: { name: string; url: string }[];
+}
+
 function MeetingTab({ projectId, meetings }: { projectId: string; meetings: MeetingLog[] }) {
   const { lb, openLb, closeLb, prevLb, nextLb } = useLightbox();
+
+  // 작성 폼
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), title: "", content: "" });
   const [pendingPhotos, setPendingPhotos] = useState<string[]>([]);
   const [pendingFiles, setPendingFiles] = useState<{ name: string; url: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const meetingFileRef = useRef<HTMLInputElement>(null);
+
+  // 목록 / 수정 상태
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [editUploading, setEditUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const editPhotoRef = useRef<HTMLInputElement>(null);
+  const editFileRef = useRef<HTMLInputElement>(null);
 
   async function uploadToStorage(file: File, path: string) {
     const r = storageRef(storage, path);
@@ -951,6 +966,7 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
     return getDownloadURL(r);
   }
 
+  // 작성 — 사진
   async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
@@ -963,19 +979,48 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
     if (photoRef.current) photoRef.current.value = "";
   }
 
+  // 작성 — 파일
   async function handleAttachSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
     setUploading(true);
-    const uploaded = await Promise.all(files.map(async f => {
-      const url = await uploadToStorage(f, `projects/${projectId}/meetings/files/${Date.now()}_${f.name}`);
-      return { name: f.name, url };
-    }));
+    const uploaded = await Promise.all(files.map(async f => ({
+      name: f.name,
+      url: await uploadToStorage(f, `projects/${projectId}/meetings/files/${Date.now()}_${f.name}`),
+    })));
     setPendingFiles(p => [...p, ...uploaded]);
     setUploading(false);
     if (meetingFileRef.current) meetingFileRef.current.value = "";
   }
 
+  // 수정 — 사진
+  async function handleEditPhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length || !editForm) return;
+    setEditUploading(true);
+    const urls = await Promise.all(files.map(f =>
+      uploadToStorage(f, `projects/${projectId}/meetings/${Date.now()}_${f.name}`)
+    ));
+    setEditForm(f => f ? { ...f, photos: [...f.photos, ...urls] } : f);
+    setEditUploading(false);
+    if (editPhotoRef.current) editPhotoRef.current.value = "";
+  }
+
+  // 수정 — 파일
+  async function handleEditFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length || !editForm) return;
+    setEditUploading(true);
+    const uploaded = await Promise.all(files.map(async f => ({
+      name: f.name,
+      url: await uploadToStorage(f, `projects/${projectId}/meetings/files/${Date.now()}_${f.name}`),
+    })));
+    setEditForm(f => f ? { ...f, files: [...f.files, ...uploaded] } : f);
+    setEditUploading(false);
+    if (editFileRef.current) editFileRef.current.value = "";
+  }
+
+  // 붙여넣기 — 작성/수정 모드 자동 분기
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
       const files = Array.from(e.clipboardData?.items ?? [])
@@ -983,35 +1028,54 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
         .map(item => item.getAsFile())
         .filter(Boolean) as File[];
       if (!files.length) return;
-      setUploading(true);
       const urls = await Promise.all(files.map(f =>
         uploadToStorage(f, `projects/${projectId}/meetings/${Date.now()}_paste.png`)
       ));
-      setPendingPhotos(p => [...p, ...urls]);
-      setUploading(false);
+      if (editingId) {
+        setEditForm(f => f ? { ...f, photos: [...f.photos, ...urls] } : f);
+      } else {
+        setPendingPhotos(p => [...p, ...urls]);
+      }
     };
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [projectId]);
+  }, [projectId, editingId]);
 
   async function submit() {
     if (!form.date || !form.title.trim()) return;
     setSubmitting(true);
     try {
       await addDoc(collection(db, "projects", projectId, "meetingLogs"), {
-        date: form.date,
-        title: form.title.trim(),
-        content: form.content,
-        photos: pendingPhotos,
-        files: pendingFiles,
-        createdAt: serverTimestamp(),
+        date: form.date, title: form.title.trim(), content: form.content,
+        photos: pendingPhotos, files: pendingFiles, createdAt: serverTimestamp(),
       });
       setForm({ date: new Date().toISOString().slice(0, 10), title: "", content: "" });
       setPendingPhotos([]);
       setPendingFiles([]);
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
+  }
+
+  function startEdit(m: MeetingLog) {
+    setEditingId(m.id);
+    setExpandedId(m.id);
+    setEditForm({ date: m.date, title: m.title, content: m.content, photos: [...(m.photos ?? [])], files: [...(m.files ?? [])] });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditForm(null);
+  }
+
+  async function saveEdit() {
+    if (!editForm || !editingId) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, "projects", projectId, "meetingLogs", editingId), {
+        date: editForm.date, title: editForm.title.trim(),
+        content: editForm.content, photos: editForm.photos, files: editForm.files,
+      });
+      cancelEdit();
+    } finally { setSaving(false); }
   }
 
   async function deleteMeeting(id: string) {
@@ -1022,23 +1086,19 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
   return (
     <div>
       <Lightbox lb={lb} onClose={closeLb} onPrev={prevLb} onNext={nextLb} />
+
+      {/* 작성 폼 */}
       <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">미팅기록 작성</h2>
         <div className="grid grid-cols-2 gap-2">
-          <input type="date" value={form.date}
-            onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+          <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400" />
-          <input value={form.title}
-            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="제목 *"
+          <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="제목 *"
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400" />
         </div>
-        <textarea value={form.content}
-          onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-          placeholder="미팅 내용을 입력하세요 (이미지 붙여넣기 가능)"
-          rows={4}
+        <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+          placeholder="미팅 내용을 입력하세요 (이미지 붙여넣기 가능)" rows={4}
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 resize-none" />
-
         {pendingPhotos.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
             {pendingPhotos.map((url, i) => (
@@ -1050,7 +1110,6 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
             ))}
           </div>
         )}
-
         {pendingFiles.length > 0 && (
           <div className="space-y-1">
             {pendingFiles.map((f, i) => (
@@ -1061,18 +1120,12 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
             ))}
           </div>
         )}
-
         {uploading && <p className="text-xs text-blue-500">업로드 중...</p>}
-
         <div className="flex gap-2">
           <button onClick={() => photoRef.current?.click()}
-            className="flex-1 py-2 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-white transition-colors">
-            📷 사진
-          </button>
+            className="flex-1 py-2 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-white transition-colors">📷 사진</button>
           <button onClick={() => meetingFileRef.current?.click()}
-            className="flex-1 py-2 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-white transition-colors">
-            📎 파일
-          </button>
+            className="flex-1 py-2 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-white transition-colors">📎 파일</button>
           <button onClick={submit} disabled={submitting || !form.title.trim() || !form.date}
             className="flex-1 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors">
             {submitting ? "저장 중..." : "저장"}
@@ -1082,13 +1135,15 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
         <input ref={meetingFileRef} type="file" multiple className="hidden" onChange={handleAttachSelect} />
       </div>
 
+      {/* 목록 */}
       {!meetings.length ? (
         <div className="text-center py-12 text-gray-400 text-sm">미팅 기록이 없습니다.</div>
       ) : (
         <div className="space-y-3">
           {meetings.map(m => (
             <div key={m.id} className="border border-gray-200 rounded-xl overflow-hidden">
-              <button onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}
+              {/* 헤더 */}
+              <button onClick={() => { if (editingId === m.id) return; setExpandedId(expandedId === m.id ? null : m.id); }}
                 className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium text-gray-800">{m.title}</span>
@@ -1096,16 +1151,74 @@ function MeetingTab({ projectId, meetings }: { projectId: string; meetings: Meet
                   {m.photos?.length > 0 && <span className="text-xs text-gray-400">📷 {m.photos.length}</span>}
                   {m.files?.length > 0 && <span className="text-xs text-gray-400">📎 {m.files.length}</span>}
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button onClick={e => { e.stopPropagation(); startEdit(m); }}
+                    className="text-xs text-blue-500 hover:text-blue-700 px-2 py-0.5">수정</button>
                   <button onClick={e => { e.stopPropagation(); deleteMeeting(m.id); }}
                     className="text-xs text-red-400 hover:text-red-600 px-2 py-0.5">삭제</button>
-                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${expandedId === m.id ? "rotate-180" : ""}`}
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  {editingId !== m.id && (
+                    <svg className={`w-4 h-4 text-gray-400 transition-transform ${expandedId === m.id ? "rotate-180" : ""}`}
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
                 </div>
               </button>
-              {expandedId === m.id && (
+
+              {/* 수정 폼 */}
+              {editingId === m.id && editForm && (
+                <div className="px-4 pb-4 border-t border-blue-100 pt-3 space-y-3 bg-blue-50/30">
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="date" value={editForm.date} onChange={e => setEditForm(f => f ? { ...f, date: e.target.value } : f)}
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400" />
+                    <input value={editForm.title} onChange={e => setEditForm(f => f ? { ...f, title: e.target.value } : f)} placeholder="제목 *"
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400" />
+                  </div>
+                  <textarea value={editForm.content} onChange={e => setEditForm(f => f ? { ...f, content: e.target.value } : f)}
+                    placeholder="내용 (이미지 붙여넣기 가능)" rows={4}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 resize-none" />
+                  {editForm.photos.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {editForm.photos.map((url, i) => (
+                        <div key={i} className="relative">
+                          <img src={url} className="w-full aspect-video object-cover rounded-lg" />
+                          <button onClick={() => setEditForm(f => f ? { ...f, photos: f.photos.filter((_, j) => j !== i) } : f)}
+                            className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-xs flex items-center justify-center">×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {editForm.files.length > 0 && (
+                    <div className="space-y-1">
+                      {editForm.files.map((f, i) => (
+                        <div key={i} className="flex items-center justify-between bg-white rounded-lg px-3 py-1.5 text-xs text-gray-600 border border-gray-200">
+                          <span className="truncate">📎 {f.name}</span>
+                          <button onClick={() => setEditForm(ef => ef ? { ...ef, files: ef.files.filter((_, j) => j !== i) } : ef)}
+                            className="text-red-400 ml-2 flex-shrink-0">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {editUploading && <p className="text-xs text-blue-500">업로드 중...</p>}
+                  <div className="flex gap-2">
+                    <button onClick={() => editPhotoRef.current?.click()}
+                      className="py-2 px-3 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-white transition-colors">📷</button>
+                    <button onClick={() => editFileRef.current?.click()}
+                      className="py-2 px-3 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-white transition-colors">📎</button>
+                    <button onClick={cancelEdit}
+                      className="flex-1 py-2 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-white transition-colors">취소</button>
+                    <button onClick={saveEdit} disabled={saving || !editForm.title.trim()}
+                      className="flex-1 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                      {saving ? "저장 중..." : "저장"}
+                    </button>
+                  </div>
+                  <input ref={editPhotoRef} type="file" accept="image/*" multiple className="hidden" onChange={handleEditPhotoSelect} />
+                  <input ref={editFileRef} type="file" multiple className="hidden" onChange={handleEditFileSelect} />
+                </div>
+              )}
+
+              {/* 읽기 뷰 */}
+              {expandedId === m.id && editingId !== m.id && (
                 <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
                   {m.content && <p className="text-sm text-gray-700 whitespace-pre-line">{m.content}</p>}
                   {m.photos?.length > 0 && (
